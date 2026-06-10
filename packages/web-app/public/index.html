@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Solar Load Controller</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Solar Load Controller</h1>
+      <div id="conn" class="badge offline">disconnected</div>
+    </header>
+
+    <section class="grid">
+      <div class="card">
+        <h2>Power</h2>
+        <div class="metric"><label>input_w</label><span id="input_w">—</span></div>
+        <div class="metric"><label>usage_w</label><span id="usage_w">—</span></div>
+        <div class="metric"><label>available_w</label><span id="available_w">—</span></div>
+        <div class="metric"><label>updated</label><span id="ts">—</span></div>
+      </div>
+
+      <div class="card">
+        <h2>Mode</h2>
+        <div class="mode-row">
+          <span id="mode_label" class="mode-label">—</span>
+          <button id="mode_auto">Auto</button>
+          <button id="mode_manual">Manual</button>
+        </div>
+        <p class="hint">In auto, ESP32 decides. In manual, your AC/Fan buttons control directly via ESP32.</p>
+      </div>
+
+      <div class="card">
+        <h2>AC</h2>
+        <div class="appliance" id="ac_state">
+          <div><label>desired</label><span data-k="desired">—</span></div>
+          <div><label>commanded</label><span data-k="commanded">—</span></div>
+          <div><label>observed</label><span data-k="observed">—</span></div>
+        </div>
+        <div class="row">
+          <button data-cmd="ac" data-val="on">Turn ON</button>
+          <button data-cmd="ac" data-val="off">Turn OFF</button>
+        </div>
+        <details>
+          <summary>Direct remote (bypass ESP32)</summary>
+          <div class="row">
+            <button data-direct="ac" data-power="on">Remote ON</button>
+            <button data-direct="ac" data-power="off">Remote OFF</button>
+          </div>
+        </details>
+      </div>
+
+      <div class="card">
+        <h2>Fan</h2>
+        <div class="appliance" id="fan_state">
+          <div><label>desired</label><span data-k="desired">—</span></div>
+          <div><label>commanded</label><span data-k="commanded">—</span></div>
+          <div><label>observed</label><span data-k="observed">—</span></div>
+        </div>
+        <div class="row">
+          <button data-cmd="fan" data-val="on">Turn ON</button>
+          <button data-cmd="fan" data-val="off">Turn OFF</button>
+        </div>
+        <details>
+          <summary>Direct remote (bypass ESP32)</summary>
+          <div class="row">
+            <button data-direct="fan" data-power="on">Remote ON</button>
+            <button data-direct="fan" data-power="off">Remote OFF</button>
+          </div>
+        </details>
+      </div>
+
+      <div class="card wide">
+        <h2>Override</h2>
+        <p>override_until: <span id="override_until">—</span></p>
+        <p class="hint">If the user toggles an appliance directly, ESP32 backs off auto control until this timestamp.</p>
+      </div>
+    </section>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>

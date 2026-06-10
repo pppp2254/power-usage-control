@@ -1,0 +1,93 @@
+:root {
+  --bg: #0d1117;
+  --card: #161b22;
+  --fg: #c9d1d9;
+  --muted: #8b949e;
+  --accent: #58a6ff;
+  --ok: #3fb950;
+  --warn: #d29922;
+  --bad: #f85149;
+  --border: #30363d;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  padding: 1.5rem;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+
+h1 { font-size: 1.25rem; margin: 0; }
+h2 { font-size: 0.95rem; margin: 0 0 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+
+.badge {
+  font-size: 0.8rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+}
+.badge.online { color: var(--ok); border-color: var(--ok); }
+.badge.offline { color: var(--bad); border-color: var(--bad); }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+.card.wide { grid-column: 1 / -1; }
+
+.metric {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.35rem 0;
+  border-bottom: 1px dotted var(--border);
+}
+.metric:last-child { border-bottom: none; }
+.metric label { color: var(--muted); font-family: ui-monospace, monospace; font-size: 0.85rem; }
+.metric span { font-family: ui-monospace, monospace; }
+
+.appliance {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+.appliance label { display: block; color: var(--muted); font-size: 0.75rem; }
+.appliance span { font-family: ui-monospace, monospace; }
+
+.row { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+button {
+  background: transparent;
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 0.35rem;
+  padding: 0.45rem 0.75rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+button:hover { border-color: var(--accent); color: var(--accent); }
+button.active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+
+.mode-row { display: flex; align-items: center; gap: 0.75rem; }
+.mode-label { font-family: ui-monospace, monospace; flex: 1; }
+.hint { color: var(--muted); font-size: 0.8rem; margin: 0.5rem 0 0; }
+
+details { margin-top: 0.5rem; }
+summary { cursor: pointer; color: var(--muted); font-size: 0.8rem; }

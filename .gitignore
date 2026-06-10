@@ -1,0 +1,30 @@
+# dependencies
+node_modules/
+bun.lockb
+
+# env / secrets
+.env
+.env.local
+.env.*.local
+firmware/esp32/config.py
+
+# build / cache
+dist/
+build/
+.cache/
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# python
+__pycache__/
+*.pyc
+
+# node-red
+node-red/.config.*.json
+node-red/lib/
+node-red/node_modules/

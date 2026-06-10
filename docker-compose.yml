@@ -1,0 +1,78 @@
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: solar-mosquitto
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./mosquitto/config:/mosquitto/config:ro
+      - mosquitto-data:/mosquitto/data
+      - mosquitto-log:/mosquitto/log
+    restart: unless-stopped
+
+  solar-mock:
+    image: oven/bun:1
+    container_name: solar-mock
+    working_dir: /app
+    command: ["sh", "-c", "bun install && exec bun run --watch src/index.ts"]
+    environment:
+      MQTT_URL: mqtt://mosquitto:1883
+      HTTP_PORT: "3001"
+      SCENARIO: sunny
+      BASE_LOAD_W: "150"
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./packages/solar-mock:/app
+    depends_on:
+      - mosquitto
+    restart: unless-stopped
+
+  ac-mock:
+    image: oven/bun:1
+    container_name: ac-mock
+    working_dir: /app
+    command: ["sh", "-c", "bun install && exec bun run --watch src/index.ts"]
+    environment:
+      MQTT_URL: mqtt://mosquitto:1883
+      AC_DRAW_W: "1200"
+    volumes:
+      - ./packages/ac-mock:/app
+    depends_on:
+      - mosquitto
+    restart: unless-stopped
+
+  fan-mock:
+    image: oven/bun:1
+    container_name: fan-mock
+    working_dir: /app
+    command: ["sh", "-c", "bun install && exec bun run --watch src/index.ts"]
+    environment:
+      MQTT_URL: mqtt://mosquitto:1883
+      FAN_DRAW_W: "60"
+    volumes:
+      - ./packages/fan-mock:/app
+    depends_on:
+      - mosquitto
+    restart: unless-stopped
+
+  web-app:
+    image: oven/bun:1
+    container_name: web-app
+    working_dir: /app
+    command: ["sh", "-c", "bun install && exec bun run --watch src/server.ts"]
+    environment:
+      MQTT_URL: mqtt://mosquitto:1883
+      HTTP_PORT: "3000"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./packages/web-app:/app
+    depends_on:
+      - mosquitto
+    restart: unless-stopped
+
+volumes:
+  mosquitto-data:
+  mosquitto-log:

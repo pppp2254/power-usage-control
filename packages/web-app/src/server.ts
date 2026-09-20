@@ -11,6 +11,25 @@ const MQTT_PASSWORD = process.env.MQTT_PASSWORD;
 // Whitelist: prevent arbitrary publish from clients.
 const PUBLISH_WHITELIST = new Set(["cmd/esp32", "cmd/ac", "cmd/fan"]);
 
+// Origins allowed to open the WS bridge.
+//
+// WebSocket upgrades are NOT subject to the same-origin policy: the browser
+// sends them cross-origin without asking, cookies and all. So without this
+// check any page the user happens to be visiting can open ws://localhost:3000
+// and switch a 1200 W air conditioner on — the topic whitelist and the payload
+// validation below both pass, because the payload is perfectly well-formed.
+// The Origin header is the only thing that distinguishes that page from ours.
+//
+// This stops the drive-by case, not another host on the LAN with a hand-rolled
+// client (which sends no Origin at all). Real authentication belongs with the
+// FlowFuse migration, where the broker has credentials.
+const ALLOWED_ORIGINS = new Set(
+  (process.env.ALLOWED_ORIGINS ?? `http://localhost:${HTTP_PORT},http://127.0.0.1:${HTTP_PORT}`)
+    .split(",")
+    .map((o) => o.trim())
+    .filter(Boolean),
+);
+
 // Topics forwarded down to all browsers.
 const FORWARD_TOPICS = ["telemetry/esp32"];
 
@@ -88,6 +107,16 @@ new Elysia()
       topic: t.String(),
       payload: t.Unknown(),
     }),
+    beforeHandle({ headers, status }) {
+      // Absent Origin = not a browser (curl, wscat, the e2e script). Those are
+      // already on the LAN and gain nothing from forging this header, so they
+      // pass; a browser that sends the wrong one does not.
+      const origin = headers.origin;
+      if (origin != null && !ALLOWED_ORIGINS.has(origin)) {
+        console.warn(`[ws] rejected upgrade from origin ${origin}`);
+        return status(403, "origin not allowed");
+      }
+    },
     open(ws) {
       subscribers.add(ws);
       console.log(`[ws] client open. total=${subscribers.size}`);

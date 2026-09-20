@@ -53,6 +53,12 @@ class Appliance:
         # Override. None = no override (never use 0 as sentinel: ticks wrap).
         self.override_until = None       # ticks
 
+        # True once a command has been resent MAX_RESENDS times without the
+        # meter ever moving. Surfaced in telemetry: an appliance that stopped
+        # answering its remote is otherwise invisible, because `observed`
+        # simply stays at its last believed value forever.
+        self.fault = False
+
     def in_override(self, now):
         return self.override_until is not None and ticks_diff(self.override_until, now) > 0
 
@@ -80,6 +86,9 @@ class Controller:
         self._publish_telemetry = publish_telemetry_fn
 
         self.mode = "auto"            # "auto" | "manual"
+        # False while the solar API is unreadable. The loop keeps running on
+        # the last known numbers, so telemetry has to say they are stale.
+        self.solar_ok = True
         self.prev_usage_w = None
         self.last_input_w = 0.0
         self.last_usage_w = 0.0
@@ -129,6 +138,7 @@ class Controller:
 
     def tick(self, input_w, usage_w):
         now = ticks_ms()
+        self.solar_ok = True
         self.last_input_w = input_w
         self.last_usage_w = usage_w
 
@@ -146,6 +156,58 @@ class Controller:
             self._auto_decide(input_w, usage_w, now)
 
         self._actuate(now)
+        self._publish_telemetry()
+
+    def assert_known_state(self):
+        """Put the appliances into a state we actually know, once, at boot.
+
+        `observed` starts at "off" because the firmware has to start somewhere,
+        but that is a guess, and a wrong guess is not symmetric. If an
+        appliance is really running, `desired == observed == "off"` makes
+        `_actuate` skip it forever: the controller will never switch off a load
+        it does not believe is on, which is precisely the grid draw it exists
+        to prevent. (Verification cannot rescue this — a command that changes
+        nothing at the meter is indistinguishable from a command that was
+        lost.)
+
+        Commands are full-state IR presses, so sending "off" is idempotent and
+        makes the assumption true instead of merely assumed. The user can
+        switch anything straight back on; the meter sees it and
+        `_detect_override` adopts it. Set ASSERT_OFF_AT_BOOT = False to start
+        from the guess instead.
+        """
+        if not config.ASSERT_OFF_AT_BOOT:
+            return
+        for app in (self.ac, self.fan):
+            self._send_raw(app, "off")
+            app.desired = "off"
+            app.observed = "off"
+            app.last_state_change_ms = ticks_ms()
+
+    def on_poll_failure(self, consecutive):
+        """Called instead of tick() when GET /power failed.
+
+        Skipping the tick outright — which is what the loop used to do — has
+        two costs. Telemetry stops, so the web app keeps showing the last good
+        numbers with no way to tell they are minutes old. And in auto mode the
+        AC keeps running on grid power for the whole outage, which is the one
+        thing this controller exists to prevent. So: keep publishing, and once
+        the outage looks real rather than a dropped packet, shed load.
+
+        Manual mode is left alone. The user is holding the controls.
+        """
+        self.solar_ok = False
+        now = ticks_ms()
+
+        if self.mode == "auto" and consecutive >= config.MAX_POLL_FAILURES:
+            for app in (self.ac, self.fan):
+                if app.desired == "off" or app.pending_target is not None:
+                    continue
+                if not app.can_turn_off(now):
+                    continue
+                print("[ctrl] solar unreadable x", consecutive, "- shedding", app.name)
+                self._send_cmd(app, "off", now)
+
         self._publish_telemetry()
 
     def override_remaining_ms(self):
@@ -180,6 +242,7 @@ class Controller:
                 app.last_state_change_ms = now
                 self._clear_pending(app)
                 app.retry_after = None
+                app.fault = False
                 print("[ctrl] verified", app.name, "->", app.observed)
                 # Our verified draw is now part of usage_w; fold it into the
                 # other appliance's baseline so its cumulative delta stays clean.
@@ -198,6 +261,7 @@ class Controller:
                           "(retry in", config.RETRY_BACKOFF_MS // 1000, "s)")
                     self._clear_pending(app)
                     app.retry_after = ticks_add(now, config.RETRY_BACKOFF_MS)
+                    app.fault = True
 
     def _clear_pending(self, app):
         app.pending_target = None
@@ -217,6 +281,7 @@ class Controller:
             else:
                 continue
             app.last_state_change_ms = now
+            app.fault = False
             # Adopt the user's choice — never counter-command an override.
             app.desired = app.observed
             app.override_until = ticks_add(now, config.OVERRIDE_GRACE_MS)
@@ -230,15 +295,25 @@ class Controller:
             if app.in_override(now) and not config.AUTO_REASSERT:
                 continue
 
+            # Both thresholds are measured in the same frame: headroom with
+            # THIS appliance off. `surplus` already has its draw subtracted
+            # while it runs (the meter sees it), so add the draw back.
+            #
+            # Comparing the raw surplus in both branches puts the on-test and
+            # the off-test in different frames, and the hysteresis gap stops
+            # existing: the AC turned on at surplus >= 600, which by its own
+            # 1200 W draw made surplus -600, which is <= 200, so it turned off
+            # again as soon as MIN_ON allowed — and back on after MIN_OFF,
+            # forever, under perfectly steady sun.
+            headroom = surplus + (app.draw_w if app.observed == "on" else 0)
+
             if app.observed == "off":
-                if surplus >= app.on_surplus and app.can_turn_on(now):
+                if headroom >= app.on_surplus and app.can_turn_on(now):
                     app.desired = "on"
                 else:
                     app.desired = "off"
             else:
-                # surplus already excludes this appliance's draw (it is in usage_w),
-                # so the off threshold compares remaining surplus directly.
-                if surplus <= app.off_surplus and app.can_turn_off(now):
+                if headroom <= app.off_surplus and app.can_turn_off(now):
                     app.desired = "off"
                 else:
                     app.desired = "on"

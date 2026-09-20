@@ -91,3 +91,8 @@ button.active { background: var(--accent); color: var(--bg); border-color: var(-
 
 details { margin-top: 0.5rem; }
 summary { cursor: pointer; color: var(--muted); font-size: 0.8rem; }
+
+.alert {
+  color: #c0392b;
+  font-weight: 600;
+}

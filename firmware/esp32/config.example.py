@@ -24,6 +24,12 @@ TOPIC_FAN_CMD = "cmd/fan"
 
 # --- Control tunables (§8) ---
 POLL_INTERVAL_MS = 2000        # >= solar API update interval
+MAX_POLL_FAILURES = 5          # consecutive failed /power reads before auto sheds load
+# Surplus thresholds are HEADROOM WITH THE APPLIANCE OFF, not the raw
+# input-minus-usage of the moment. Both thresholds share that frame, which is
+# what makes the gap between them real hysteresis. Setting ON below the
+# appliance's own draw is allowed and means "start it even though part of the
+# load comes off the grid" — raise it above AC_DRAW_W for solar-only operation.
 AC_ON_SURPLUS_W = 600          # turn-on threshold (hysteresis)
 AC_OFF_SURPLUS_W = 200         # turn-off threshold; gap prevents chattering
 FAN_ON_SURPLUS_W = 50
@@ -43,6 +49,14 @@ FAN_DRAW_W = 48                # fan-mock draws base 60 W x speed gain; we comma
 # overrides are never detected.
 AC_DELTA_TOL_W = 300
 FAN_DELTA_TOL_W = 25
+
+# --- Boot state policy ---
+# True  = send one "off" to each appliance at boot, so `observed` is known
+#         rather than assumed. Costs: an appliance the user left running is
+#         switched off once, at boot.
+# False = trust the "off" assumption. An appliance already running is then
+#         invisible to the controller and will never be switched off.
+ASSERT_OFF_AT_BOOT = True
 
 # --- Auto-mode re-assert policy (§8 explicit decision) ---
 # False = user always wins until OVERRIDE_GRACE expires, then auto resumes.

@@ -59,11 +59,16 @@ Gated under `/dev/*` would be cleaner; keep at root for now but mark clearly in 
   "usage_w": 310.0,
   "available_w": 110.5,
   "mode": "auto",
-  "ac":  { "desired": "off", "commanded": "off", "observed": "off" },
-  "fan": { "desired": "on",  "commanded": "on",  "observed": "on" },
+  "solar_ok": true,
+  "ac":  { "desired": "off", "commanded": "off", "observed": "off", "fault": false },
+  "fan": { "desired": "on",  "commanded": "on",  "observed": "on",  "fault": false },
   "override_until": null
 }
 ```
+
+`solar_ok` is `false` while `GET /power` is failing: `input_w`/`usage_w` are then the last good read rather than live values, and after `MAX_POLL_FAILURES` consecutive failures auto mode sheds load.
+
+`fault` is `true` once the ESP32 has resent a command `MAX_RESENDS` times without the meter moving — the appliance stopped answering its remote, so `observed` beside it is a stale belief rather than a reading. It clears as soon as the meter confirms that appliance moving again.
 
 `override_until` is `null` or epoch ms when the override grace expires. Per-appliance overrides may be represented in this object too if needed (e.g. `ac.override_until`); the top-level field is the simplest form for the web app.
 

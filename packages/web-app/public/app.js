@@ -51,6 +51,10 @@ function render(t) {
   $("usage_w").textContent = fmt(t.usage_w);
   $("available_w").textContent = fmt(t.available_w);
   $("ts").textContent = t.ts ? new Date(t.ts).toLocaleTimeString() : "—";
+  // solar_ok false means these numbers are the last good read, not live.
+  const solarOk = t.solar_ok !== false;
+  $("solar_ok").textContent = solarOk ? "ok" : "UNREACHABLE";
+  $("solar_ok").classList.toggle("alert", !solarOk);
   $("mode_label").textContent = t.mode ?? "—";
   currentMode = t.mode ?? null;
   setActiveMode(t.mode);
@@ -67,6 +71,13 @@ function renderAppliance(rootId, a) {
   for (const k of ["desired", "commanded", "observed"]) {
     const el = root.querySelector(`[data-k="${k}"]`);
     if (el) el.textContent = a[k] ?? "—";
+  }
+  // `fault` is the ESP32 giving up after MAX_RESENDS: the appliance stopped
+  // answering its remote, so `observed` above is a stale belief, not a reading.
+  const fault = root.querySelector('[data-k="fault"]');
+  if (fault) {
+    fault.textContent = a.fault == null ? "—" : a.fault ? "NOT RESPONDING" : "ok";
+    fault.classList.toggle("alert", a.fault === true);
   }
 }
 

@@ -15,6 +15,7 @@ _CFG = dict(
     TOPIC_AC_CMD="cmd/ac",
     TOPIC_FAN_CMD="cmd/fan",
     POLL_INTERVAL_MS=2000,
+    MAX_POLL_FAILURES=5,
     AC_ON_SURPLUS_W=600,
     AC_OFF_SURPLUS_W=200,
     FAN_ON_SURPLUS_W=50,
@@ -30,6 +31,7 @@ _CFG = dict(
     AC_DELTA_TOL_W=300,
     FAN_DELTA_TOL_W=25,
     AUTO_REASSERT=False,
+    ASSERT_OFF_AT_BOOT=True,
 )
 
 config = types.ModuleType("config")

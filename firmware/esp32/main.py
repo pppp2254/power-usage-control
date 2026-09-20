@@ -65,15 +65,18 @@ def main():
             "usage_w": round(ctrl.last_usage_w, 1),
             "available_w": round(ctrl.last_input_w - ctrl.last_usage_w, 1),
             "mode": ctrl.mode,
+            "solar_ok": ctrl.solar_ok,
             "ac": {
                 "desired": ctrl.ac.desired,
                 "commanded": ctrl.ac.commanded,
                 "observed": ctrl.ac.observed,
+                "fault": ctrl.ac.fault,
             },
             "fan": {
                 "desired": ctrl.fan.desired,
                 "commanded": ctrl.fan.commanded,
                 "observed": ctrl.fan.observed,
+                "fault": ctrl.fan.fault,
             },
             "override_until": (epoch_ms() + rem) if rem is not None else None,
         }
@@ -85,6 +88,8 @@ def main():
         ctrl.on_cmd_esp32(topic, msg)
 
     mqtt.connect(on_message=on_msg)
+    # Before the first decision: make the "everything is off" assumption true.
+    ctrl.assert_known_state()
     # Subscribe ONLY to cmd/esp32. Anti-cheat: do NOT subscribe to state/*.
     mqtt.subscribe(config.TOPIC_POWER_CMD, qos=1)
 
@@ -96,12 +101,20 @@ def main():
     def elapsed(now, since):
         return time.ticks_diff(now, since) if _MICROPY else now - since
 
+    poll_failures = 0
+
     while True:
         now = now_ms()
         if elapsed(now, last_poll) >= config.POLL_INTERVAL_MS:
             res = fetch_power()
             if res is not None:
+                poll_failures = 0
                 ctrl.tick(res[0], res[1])
+            else:
+                # Not a skipped beat: telemetry must keep flowing and auto mode
+                # must eventually shed load. See Controller.on_poll_failure.
+                poll_failures += 1
+                ctrl.on_poll_failure(poll_failures)
             last_poll = now
         mqtt.check_msg()
         time.sleep(0.05)
